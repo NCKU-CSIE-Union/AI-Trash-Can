@@ -65,9 +65,9 @@ void TryGetPythonHTTPServer(){
       return ;
     }
     Serial.println("Try to get python server");
-    WiFiClientSecure broswer;
+    WiFiClient broswer;
     // set fingerprint
-    broswer.setFingerprint(fingerprint);
+    // broswer.setFingerprint(fingerprint);
     // https request
     if( broswer.connect(Host , 8888)){
         broswer.print(String("GET ") + URL + " HTTP/1.1\r\n" +
