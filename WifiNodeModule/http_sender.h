@@ -4,6 +4,8 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 
+#include "env.h"
+
 
 // HTTP Method enum
 
@@ -43,7 +45,7 @@ public:
     }
 
     void get(String host, String url) {
-        if (client->connect(host.c_str(), protocol == HTTP ? 80 : 443)) {
+        if (client->connect(host.c_str(), protocol == HTTP ? SERVER_PORT : 443)) {
             client->print(String("GET ") + url + " HTTP/1.1\r\n" +
                           "Host: " + host + "\r\n" +
                           "User-Agent: HTTPSender\r\n" +
@@ -61,7 +63,7 @@ public:
     }
 
     void post(String host, String url, String payload) {
-        if (client->connect(host.c_str(), protocol == HTTP ? 80 : 443)) {
+        if (client->connect(host.c_str(), protocol == HTTP ? SERVER_PORT : 443)) {
             client->print(String("POST ") + url + " HTTP/1.1\r\n" +
                           "Host: " + host + "\r\n" +
                           "User-Agent: HTTPSender\r\n" +

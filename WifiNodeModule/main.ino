@@ -3,41 +3,9 @@
 #include <ESP8266WebServer.h> 
 #include <WiFiClientSecure.h> // for http request to Google API
 
+#include "env.h"
 #include "http_sender.h"
 
-// 4x1 keypad
-const uint8_t Key1 = D1;
-const uint8_t Key2 = D2;
-const uint8_t Key3 = D3;
-const uint8_t Key4 = D4;
-
-const int buttonPin[4] = {Key1 , Key2 ,Key3 ,Key4 };
-
-// light 
-const uint8_t GreenPin = D7;
-const uint8_t RedPin = D6;
-
-// Wifi setting 
-const char SSID[] = "TP-Link_02B8";
-const char WIFIpassword[] = "32974560";
-
-// Admin user setting 
-const char USERNAME[] = "admin";
-const char PASSWORD[] = "admin";
-
-// Door password
-String DoorPassword= "123";
-uint8_t DoorPasswordLen = 3;
-uint8_t idx = 0 ;
-bool Open = false ; 
-
-const char Host[] = "192.168.1.103";
-String URL = "/";
-
-
-// fingerprint:
-// 9A:71:DE:E7:1A:B2:25:CA:B4:F2:36:49:AB:CE:F6:25:62:04:E4:3C
-const char fingerprint[] = "9A:71:DE:E7:1A:B2:25:CA:B4:F2:36:49:AB:CE:F6:25:62:04:E4:3C";
 HTTPSender *sender;
 
 void TryGetPythonHTTPServer(HTTPSender *sender){
@@ -46,7 +14,7 @@ void TryGetPythonHTTPServer(HTTPSender *sender){
       return ;
     }
     Serial.println("Try to get python server");
-    sender->get(Host, URL);
+    sender->get(SERVER_HOST, TEST_URL);
 }
 
 
@@ -55,7 +23,7 @@ void setup(){
     // init Serial 
     Serial.begin(9600);
     // start connect to AP
-    WiFi.begin( SSID , WIFIpassword );
+    WiFi.begin( SSID , WIFI_PASSWORD );
     // Wait for connection 
     while( WiFi.status() != WL_CONNECTED ){
         delay(500);
@@ -67,11 +35,16 @@ void setup(){
     Serial.println(WiFi.localIP());
 
     // init sender
-    sender = new HTTPSender(HTTPProtocol::HTTP);
-    // sender = new HTTPSender(HTTPProtocol::HTTPS);
-    // sender->init_https(fingerprint);
+    if( SERVER_PROTOCOL == "HTTP" ){
+        sender = new HTTPSender(HTTPProtocol::HTTP);
+    } else if ( SERVER_PROTOCOL == "HTTPS" ){
+        sender = new HTTPSender(HTTPProtocol::HTTPS);
+        sender->init_https(HTTPS_FINGERPRINT);
+    }
+    else{
+        Serial.println("Invalid SERVER_PROTOCOL protocol");
+    }
 }
-
 
 void loop(void){
 
