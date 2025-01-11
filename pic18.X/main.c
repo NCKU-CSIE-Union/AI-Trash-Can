@@ -60,9 +60,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <xc.h>
-#define _XTAL_FREQ 4000000
+// #define _XTAL_FREQ 4000000
+#define _XTAL_FREQ 8000000
 #define STR_MAX 100
 #define VR_MAX ((1 << 10) - 1)
+#define TRIG_PIN   LATD0  // HC-SR04 Trig on RD0
+#define ECHO_PIN   PORTBbits.RB0   // HC-SR04 Echo on RB0
 // #define delay(t) __delay_ms(t * 1000);
 
 char buffer[STR_MAX];
@@ -128,31 +131,6 @@ void __interrupt(low_priority) Lo_ISR(void) {
 void Initialize(void) {
     // Configure oscillator
     OSCCONbits.IRCF = 0b110;  // 4 MHz
-    // Configure ADC
-    TRISAbits.RA0 = 1;         // Set RA0 as input port
-    ADCON1bits.PCFG = 0b1110;  // AN0 as analog input
-    ADCON0bits.CHS = 0b0000;   // Select AN0 channel
-    ADCON1bits.VCFG0 = 0;      // Vref+ = Vdd
-    ADCON1bits.VCFG1 = 0;      // Vref- = Vss
-    ADCON2bits.ADCS = 0b000;   // ADC clock Fosc/2
-    ADCON2bits.ACQT = 0b001;   // 2Tad acquisition time
-    ADCON0bits.ADON = 1;       // Enable ADC
-    ADCON2bits.ADFM = 1;       // Right justified
-
-    // Configure servo (PWM)
-    T2CONbits.TMR2ON = 0b1;      // Timer2 on
-    T2CONbits.T2CKPS = 0b11;     // Prescaler 16
-    CCP1CONbits.CCP1M = 0b1100;  // PWM mode
-    PR2 = 0x9b;                  // Set PWM period
-
-    TRISCbits.TRISC2 = 0;
-
-    // Configure I/O ports
-    TRISA &= 0xF1;  // Set RA1-RA3 as outputs for LED
-    TRISB = 1;      // RB0 as input for button
-    TRISC = 0;      // PORTC as output for servo
-    LATA &= 0xF1;   // Clear RA1-RA3
-    LATC = 0;       // Clear PORTC
 
     // Configure interrupts
     INTCONbits.INT0IF = 0;  // Clear INT0 flag
@@ -204,9 +182,19 @@ void Initialize(void) {
      RSR   : Current Data
      RCREG : Correct Data (have been processed) : read data by reading the RCREG Register
     */
-
-    // Start ADC conversion
-    ADCON0bits.GO = 1;
+    
+    // Configure pins for HC-SR04
+    // TRISDbits.TRISD0 = 0;  // Set RD0 (Trigger) as output
+    // TRISBbits.TRISB0 = 1;  // Set RB0 (Echo) as input
+    // TRIG_PIN = 0;          // Initialize trigger pin to low
+    // OSCCON=0x72;		/* Use internal oscillator frequency */
+    TRISB = 0xff;		/* Make PORTB as Input port*/
+    TRISD = 0;			/* Make PORTD as Output port*/
+    INTCON2bits.RBPU=0;		/* Enable PORTB Pull-ups */
+    TRIG_PIN = 0;          // Initialize trigger pin to low
+    T1CON = 0x80;
+    TMR1IF = 0;			/* Make Timer1 Overflow Flag to '0' */
+    TMR1=0;			/* Load Timer1 with 0 */
 }
 
 // ---------------- OOP --------------------
@@ -325,33 +313,75 @@ void keyboard_input(char *str) {  // get line from keyboard: this function will 
 
 }
 
+// Add these new functions for HC-SR04
+float get_distance(void) {
+    float distance;
+    unsigned int time_taken;
+    unsigned int timeout = 0;
+    
+    // Send trigger pulse
+    TRIG_PIN = 1;
+    __delay_us(10);
+    TRIG_PIN = 0;
+    
+    // Wait for echo to start (with timeout)
+    timeout = 0;
+    while(!ECHO_PIN && timeout < 1000) {
+        timeout++;
+        __delay_us(1);
+    }
+    
+    if(timeout >= 1000) return 0.0; // Return 0 if no echo detected
+    
+    // Start timing
+    TMR1H = 0;
+    TMR1L = 0;
+    T1CONbits.TMR1ON = 1;  // Start timer
+    
+    // Wait for echo to end (with timeout)
+    timeout = 0;
+    while(ECHO_PIN && timeout < 10000) {  // Increased timeout period
+        timeout++;
+        __delay_us(1);
+    }
+    
+    // Stop timer
+    T1CONbits.TMR1ON = 0;
+    
+    if(timeout >= 10000) return 0.0; // Return 0 if echo too long
+    
+    // Calculate distance
+    time_taken = (TMR1H << 8) | TMR1L;
+    distance = ((float)time_taken * 0.034) / 2;  // Distance in centimeters
+    
+    return distance;
+}
+
+void setup_timer1(void) {
+    T1CONbits.TMR1CS = 0;    // Use internal clock (Fosc/4)
+    T1CONbits.T1CKPS = 0b01; // 1:2 prescaler - Changed from 1:1 for better timing
+    T1CONbits.RD16 = 1;      // 16-bit operation
+    TMR1H = 0;
+    TMR1L = 0;
+}
+
 void main() {
     Initialize();
-    /* Usage:
-     * set_servo_angle(-90); // input: -90 ~ 90, return value: -1 represents interrupt with button press, else 0
-     * get_servo_angle(); // return value: -90 ~ 90
-     *
-     * set_LED(5); // 5 = 0b101, set LED1 and LED3 on, LED2 off
-     * get_LED(); // return value: an integer, bit 0 -> LED1, bit 1 -> LED2, bit 2 -> LED3
-     *
-     * set_LED_separately(1, 1, 0); // set LED1 and LED2 on, LED3 off
-     * set_LED_analog(512); // input: 0 ~ 1023, represent brightness. NOTICE: LED need to be plugged into the CCP1 pin.
-     *
-     * VR_value_to_servo_angle(1024); // return value: -90 ~ 90. Change the variable register value to servo angle
-     * VR_value_to_LED_analog(1024); // return value: 0 ~ 1023. Change the variable register value to LED brightness
-     *
-     * delay(1); // delay 1 second, return value: -1 represents interrupt with button press, else 0
-     *
-     * printf(); // print on uart terminal
-     */
-
+    // setup_timer1();
+    
     char str[STR_MAX];
 
     while (1) {
-        // Do sth in main
-
-
+        float distance = get_distance();
+        if(distance > 0.0) {  // Only print valid readings
+            printf("Distance: %.2f cm\n", distance);
+        }
+        else {
+            printf("Ultrasonic sensor timeout\n");
+        }
+        
         if (GetString(str)) keyboard_input(str);
-        if (ADCON0bits.GO == 0) ADCON0bits.GO = 1;
+        
+        __delay_ms(100);  // Add delay between readings
     }
 }
