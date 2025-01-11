@@ -34,16 +34,12 @@ void setup(){
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
-    // init sender
-    if( SERVER_PROTOCOL == "HTTP" ){
-        sender = new HTTPSender(HTTPProtocol::HTTP);
-    } else if ( SERVER_PROTOCOL == "HTTPS" ){
-        sender = new HTTPSender(HTTPProtocol::HTTPS);
+
+    sender = new HTTPSender();
+    #ifdef SERVER_PROTOCOL == "HTTP"
+    #else
         sender->init_https(HTTPS_FINGERPRINT);
-    }
-    else{
-        Serial.println("Invalid SERVER_PROTOCOL protocol");
-    }
+    #endif
 }
 
 void loop(void){

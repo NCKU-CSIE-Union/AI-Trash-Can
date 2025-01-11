@@ -5,47 +5,34 @@
 #include <WiFiClientSecure.h>
 
 #include "env.h"
-
-
-// HTTP Method enum
-
-enum HTTPMethod{
-    GET,
-    POST,
-    PUT,
-    DELETE
-};
-
-enum HTTPProtocol{
-    HTTP,
-    HTTPS
-};
+#define HTTP_SERVER_PORT aiot(SERVER_PORT)
 
 class HTTPSender {
 public:
-    HTTPSender(HTTPProtocol protocol) {
-        if (protocol == HTTP) {
-            client = new WiFiClient();  // Create a new WiFiClient for HTTP
-        } else {
-            client = new WiFiClientSecure();  // Create a new WiFiClientSecure for HTTPS
-        }
-        this->protocol = protocol;
+    HTTPSender() {
+        #ifdef SERVER_PROTOCOL == "HTTP"
+            client = new WiFiClient();
+        #else
+            client = new WiFiClientSecure();
+        #endif
     }
 
     ~HTTPSender() {
         delete client;  // Clean up dynamically allocated client
     }
 
+
     void init_https(const char* fingerprint) {
-        if(protocol == HTTP) {
+        #ifdef SERVER_PROTOCOL == "HTTP"
             Serial.println("Cannot set fingerprint for HTTP");
             return;
-        }
-        client->setFingerprint(fingerprint);
+        #else // HTTPS
+            client->setFingerprint(fingerprint);
+        #endif
     }
 
     void get(String host, String url) {
-        if (client->connect(host.c_str(), protocol == HTTP ? SERVER_PORT : 443)) {
+        if (client->connect(host.c_str(), SERVER_PROTOCOL == "HTTP" ? HTTP_SERVER_PORT : 443)) {
             client->print(String("GET ") + url + " HTTP/1.1\r\n" +
                           "Host: " + host + "\r\n" +
                           "User-Agent: HTTPSender\r\n" +
@@ -63,7 +50,7 @@ public:
     }
 
     void post(String host, String url, String payload) {
-        if (client->connect(host.c_str(), protocol == HTTP ? SERVER_PORT : 443)) {
+        if (client->connect(host.c_str(), SERVER_PROTOCOL == "HTTP" ? HTTP_SERVER_PORT : 443)) {
             client->print(String("POST ") + url + " HTTP/1.1\r\n" +
                           "Host: " + host + "\r\n" +
                           "User-Agent: HTTPSender\r\n" +
@@ -84,8 +71,11 @@ public:
     }
 
 private:
-    HTTPProtocol protocol;
-    Client* client;  // Base class pointer for polymorphism
+    #ifdef SERVER_PROTOCOL == "HTTP"
+        WiFiClient *client;
+    #else
+        WiFiClientSecure *client;
+    #endif
 };
 
 
