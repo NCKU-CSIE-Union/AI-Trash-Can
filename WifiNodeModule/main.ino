@@ -2,19 +2,8 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h> 
 #include <WiFiClientSecure.h> // for http request to Google API
-//#include "404.h"
 
-// 4x1 keypad
-const uint8_t Key1 = D1;
-const uint8_t Key2 = D2;
-const uint8_t Key3 = D3;
-const uint8_t Key4 = D4;
-
-const int buttonPin[4] = {Key1 , Key2 ,Key3 ,Key4 };
-
-// light 
-const uint8_t GreenPin = D7;
-const uint8_t RedPin = D6;
+const int buttonPin = 4;     // the number of the pushbutton pin
 
 // Wifi setting 
 const char SSID[] = "TP-Link_02B8";
@@ -37,9 +26,12 @@ String URL = "/";
 // fingerprint:
 // 9A:71:DE:E7:1A:B2:25:CA:B4:F2:36:49:AB:CE:F6:25:62:04:E4:3C
 const char fingerprint[] = "9A:71:DE:E7:1A:B2:25:CA:B4:F2:36:49:AB:CE:F6:25:62:04:E4:3C";
-
+// const int outputpin = 16;
 
 void setup(){
+    /*---- hardware setup----*/
+    pinMode(buttonPin, INPUT);
+
     /*---- software setup----*/
     // init Serial 
     Serial.begin(9600);
@@ -57,7 +49,6 @@ void setup(){
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 }
-
 
 void TryGetPythonHTTPServer(){
     if(WiFi.status()!= WL_CONNECTED){
@@ -89,9 +80,14 @@ void TryGetPythonHTTPServer(){
         Serial.println("Connection failed");
     }
 }
-
+int buttonState = 0;
+int lastState = 0;
 void loop(void){
-
+  lastState = buttonState;
+  buttonState = digitalRead(buttonPin);
+    
+  if (buttonState == HIGH && buttonState != lastState) {
     TryGetPythonHTTPServer();
-    delay(500);
+  }
 }
+
