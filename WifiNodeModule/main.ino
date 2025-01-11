@@ -2,7 +2,8 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h> 
 #include <WiFiClientSecure.h> // for http request to Google API
-//#include "404.h"
+
+#include "http_sender.h"
 
 // 4x1 keypad
 const uint8_t Key1 = D1;
@@ -37,6 +38,16 @@ String URL = "/";
 // fingerprint:
 // 9A:71:DE:E7:1A:B2:25:CA:B4:F2:36:49:AB:CE:F6:25:62:04:E4:3C
 const char fingerprint[] = "9A:71:DE:E7:1A:B2:25:CA:B4:F2:36:49:AB:CE:F6:25:62:04:E4:3C";
+HTTPSender *sender;
+
+void TryGetPythonHTTPServer(HTTPSender *sender){
+    if(WiFi.status()!= WL_CONNECTED){
+      Serial.println("Bad connection!");
+      return ;
+    }
+    Serial.println("Try to get python server");
+    sender->get(Host, URL);
+}
 
 
 void setup(){
@@ -45,9 +56,7 @@ void setup(){
     Serial.begin(9600);
     // start connect to AP
     WiFi.begin( SSID , WIFIpassword );
-
     // Wait for connection 
-
     while( WiFi.status() != WL_CONNECTED ){
         delay(500);
         Serial.print(".");
@@ -56,42 +65,16 @@ void setup(){
     Serial.println("Connected to WiFi !");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+
+    // init sender
+    sender = new HTTPSender(HTTPProtocol::HTTP);
+    // sender = new HTTPSender(HTTPProtocol::HTTPS);
+    // sender->init_https(fingerprint);
 }
 
-
-void TryGetPythonHTTPServer(){
-    if(WiFi.status()!= WL_CONNECTED){
-      Serial.println("Bad connection!");
-      return ;
-    }
-    Serial.println("Try to get python server");
-    WiFiClient broswer;
-    // set fingerprint
-    // broswer.setFingerprint(fingerprint);
-    // https request
-    if( broswer.connect(Host , 8888)){
-        broswer.print(String("GET ") + URL + " HTTP/1.1\r\n" +
-                  "Host: " + Host + "\r\n" +
-                  "User-Agent: NodeMCU\r\n" +
-                  "Connection: close\r\n\r\n");
-        
-        Serial.println("Send Request");
-
-        //  received data
-        while (broswer.connected()){
-            while (broswer.available()){
-                String str = broswer.readStringUntil('\n'); // 每次讀取到換行時輸出資料
-                Serial.println(str);
-            }
-        }
-    }
-    else{
-        Serial.println("Connection failed");
-    }
-}
 
 void loop(void){
 
-    TryGetPythonHTTPServer();
+    TryGetPythonHTTPServer(sender);
     delay(500);
 }
