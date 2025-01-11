@@ -2,10 +2,6 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h> 
 #include <WiFiClientSecure.h> // for http request to Google API
-/* --- HTML FILE --- */
-#include "index.h"
-#include "login.h"
-#include "admin.h"
 //#include "404.h"
 
 // 4x1 keypad
@@ -73,7 +69,7 @@ void TryGetPythonHTTPServer(){
     // set fingerprint
     broswer.setFingerprint(fingerprint);
     // https request
-    if( broswer.connect(Host , 80)){
+    if( broswer.connect(Host , 8888)){
         broswer.print(String("GET ") + URL + " HTTP/1.1\r\n" +
                   "Host: " + Host + "\r\n" +
                   "User-Agent: NodeMCU\r\n" +
@@ -84,7 +80,7 @@ void TryGetPythonHTTPServer(){
         //  received data
         while (broswer.connected()){
             while (broswer.available()){
-                String str = broswer.readStringUntil('\r\n'); // 每次讀取到換行時輸出資料
+                String str = broswer.readStringUntil('\n'); // 每次讀取到換行時輸出資料
                 Serial.println(str);
             }
         }
@@ -97,7 +93,5 @@ void TryGetPythonHTTPServer(){
 void loop(void){
 
     TryGetPythonHTTPServer();
-
-    server.handleClient();
     delay(500);
 }
