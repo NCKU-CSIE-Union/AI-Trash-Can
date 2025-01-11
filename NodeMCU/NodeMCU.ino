@@ -5,6 +5,7 @@
 
 #include "env.h"
 #include "http_sender.h"
+#include "ultra_sonic.h"
 
 HTTPSender *sender;
 
@@ -42,8 +43,14 @@ void setup(){
     #endif
 }
 
+int buttonState = 0;
+int lastState = 0;
 void loop(void){
+    lastState = buttonState;
+    buttonState = digitalRead(buttonPin);
 
-    TryGetPythonHTTPServer(sender);
-    delay(500);
+
+    if (buttonState == HIGH && buttonState != lastState) {
+        TryGetPythonHTTPServer();
+    }
 }

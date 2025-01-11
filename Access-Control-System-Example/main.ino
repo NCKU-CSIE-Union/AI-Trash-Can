@@ -3,11 +3,8 @@
 #include <ESP8266WebServer.h> 
 #include <WiFiClientSecure.h> // for http request to Google API
 
-const int trigPin = 14;
-const int echoPin = 12;
 
-//define sound velocity in cm/uS
-#define SOUND_VELOCITY 0.034
+
 
 long duration;
 
@@ -38,28 +35,6 @@ String URL = "/";
 // 9A:71:DE:E7:1A:B2:25:CA:B4:F2:36:49:AB:CE:F6:25:62:04:E4:3C
 const char fingerprint[] = "9A:71:DE:E7:1A:B2:25:CA:B4:F2:36:49:AB:CE:F6:25:62:04:E4:3C";
 // const int outputpin = 16;
-
-double getUltraSonicDistance(){
-    // Clears the trigPin
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    // Sets the trigPin on HIGH state for 10 micro seconds
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-    
-    // Reads the echoPin, returns the sound wave travel time in microseconds
-    duration = pulseIn(echoPin, HIGH);
-    
-    // Calculate the distance
-    distanceCm = duration * SOUND_VELOCITY/2;
-    
-    // Convert to inches
-    
-    // Prints the distance on the Serial Monitor
-    Serial.print("Distance (cm): ");
-    Serial.println(distanceCm);
-}
 
 void TryGetPythonHTTPServer(){
     if(WiFi.status()!= WL_CONNECTED){
