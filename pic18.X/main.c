@@ -143,6 +143,21 @@ void Initialize(void) {
     INTCONbits.GIEH = 1;    // enable high priority interrupt
     INTCONbits.GIEL = 1;    // disable low priority interrupt
 
+    // Configure servo (PWM)
+    T2CONbits.TMR2ON = 0b1;      // Timer2 on
+    T2CONbits.T2CKPS = 0b11;     // Prescaler 16
+    CCP1CONbits.CCP1M = 0b1100;  // PWM mode
+    PR2 = 0x9b;                  // Set PWM period
+
+    TRISCbits.TRISC2 = 0;
+
+    // Configure I/O ports
+    TRISA &= 0xF1;  // Set RA1-RA3 as outputs for LED
+    TRISB = 0xFF;      // RB0 as input for button, notice that RB0 is the echo pin for the ultrasonic sensor, so we need to set RB0 and RB1 to output
+    TRISC = 0;      // PORTC as output for servo
+    LATA &= 0xF1;   // Clear RA1-RA3
+    LATC = 0;       // Clear PORTC
+
     // Configure UART
     /*
            TODObasic
@@ -188,9 +203,9 @@ void Initialize(void) {
     // TRISBbits.TRISB0 = 1;  // Set RB0 (Echo) as input
     // TRIG_PIN = 0;          // Initialize trigger pin to low
     // OSCCON=0x72;		/* Use internal oscillator frequency */
-    TRISB = 0xff;		/* Make PORTB as Input port*/
+    // TRISB = 0xff;		/* Make PORTB as Input port*/
     TRISD = 0;			/* Make PORTD as Output port*/
-    INTCON2bits.RBPU=0;		/* Enable PORTB Pull-ups */
+    // INTCON2bits.RBPU=0;		/* Enable PORTB Pull-ups */
     TRIG_PIN = 0;          // Initialize trigger pin to low
     T1CON = 0x80;
     TMR1IF = 0;			/* Make Timer1 Overflow Flag to '0' */
@@ -261,7 +276,7 @@ void __interrupt(high_priority) H_ISR() {
         __delay_ms(5);
     }
 
-    if (INTCONbits.INT0IF) {  // Handle button interrupt
+    if (INTCONbits.INT0IF ) {  // Handle button interrupt, RB1 is for button
         button_pressed();
         __delay_ms(50);  // bouncing problem
         btn_interr = true;
@@ -285,8 +300,12 @@ void button_pressed() {
     /* Example:
      * set_LED(get_LED() + 1);
      */
-
-
+    // printf("Button pressed\n");
+    // output LATB as binary
+    for (int i = 7; i >= 0; i--) {
+        printf("%d", (LATB & (1 << i)) ? 1 : 0);
+    }
+    printf("\n");
 }
 
 void variable_register_changed(int value) {  // value: 0 ~ 1023
@@ -320,6 +339,8 @@ float get_distance(void) {
     unsigned int timeout = 0;
     
     // Send trigger pulse
+    TRIG_PIN = 0;
+    __delay_us(2);
     TRIG_PIN = 1;
     __delay_us(10);
     TRIG_PIN = 0;
@@ -372,13 +393,13 @@ void main() {
     char str[STR_MAX];
 
     while (1) {
-        float distance = get_distance();
-        if(distance > 0.0) {  // Only print valid readings
-            printf("Distance: %.2f cm\n", distance);
-        }
-        else {
-            printf("Ultrasonic sensor timeout\n");
-        }
+        // float distance = get_distance();
+        // if(distance > 0.0) {  // Only print valid readings
+        //     printf("Distance: %.2f cm\n", distance);
+        // }
+        // else {
+        //     printf("Ultrasonic sensor timeout\n");
+        // }
         
         if (GetString(str)) keyboard_input(str);
         
