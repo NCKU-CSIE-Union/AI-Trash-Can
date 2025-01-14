@@ -2,7 +2,7 @@ from typing import Optional, Annotated
 from datetime import datetime
 
 from bson import ObjectId
-from pydantic import BaseModel, ConfigDict, Field, BeforeValidator
+from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, field_validator
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
@@ -20,7 +20,13 @@ class Record(BaseModel):
         populate_by_name=True,
     )
 
+class HeatMapRecord(BaseModel):
+    date: Optional[PyObjectId] = Field(alias="_id", default=None)
+    value: int
+
+
+
 class Filters(BaseModel):
-    seen: bool = None
-    created_at_start: datetime = None
-    created_at_end: datetime = None
+    seen: bool | None = None
+    created_at_start: datetime | None = None
+    created_at_end: datetime | None = None
