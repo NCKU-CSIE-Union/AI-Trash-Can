@@ -85,6 +85,7 @@ DATA_HTML = """
         cal.init({
             itemSelector: "#heatmapContainer",
             domain: "day",
+            subDomain: "hour",
             domainGutter: 2,
             data: 'http://localhost:8000/api/records/heatmap/',
             dataType: "json",
@@ -93,7 +94,7 @@ DATA_HTML = """
             nextSelector: '#cal-HeatMap-NextDomain-selector',
             cellSize: 20,
             range: 12,
-            legend: [2, 4, 6, 8]
+            legend: [1, 2, 3, 4]
         });
 
         var ws = new WebSocket("ws://localhost:8000/ws");
@@ -144,7 +145,7 @@ DATA_HTML = """
                         console.log(response);
                         if (response.status === 401) {
                             window.location.href = "/";
-                        }
+                        }                        
                         return response.json();
                     })
                     .then(data => {
@@ -154,6 +155,9 @@ DATA_HTML = """
                             labels.push(item.date);
                             values.push(item.count);
                         });
+                        // reverse the order of the data
+                        labels.reverse();
+                        values.reverse();
                         lineChart.data.labels = labels;
                         lineChart.data.datasets[0].data = values;
                         lineChart.update();
