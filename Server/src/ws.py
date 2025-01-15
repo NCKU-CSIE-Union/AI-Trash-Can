@@ -3,7 +3,6 @@ from loguru import logger
 import asyncio
 
 from src.security import is_valid_token
-from src.config import server_config
 from src.schema import SystemEvent, NewRecordEvent, Filters
 from src.model import Service
 
@@ -13,10 +12,10 @@ async def handle_websocket_notification(
     service: Service,
 ):
     await websocket.accept()
-    # token = websocket.cookies.get("auth")
-    # if not token or not is_valid_token(token):
-    #     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-    #     return
+    token = websocket.cookies.get("auth")
+    if not token or not is_valid_token(token):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
     await websocket.send_json(SystemEvent(message="Connected").model_dump())
     try:
         while True:

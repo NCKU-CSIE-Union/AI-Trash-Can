@@ -1,3 +1,4 @@
+from datetime import datetime
 from pymongo import MongoClient
 from loguru import logger
 
@@ -66,6 +67,32 @@ class Service:
             query["created_at"] = {"$lte": filters.created_at_end}
         return collection.find(query)
 
+    def read_records_line_chart(self, aggregate_by: str, limit: int):
+        # aggregate_by will be one of "month", "day", "hour", "minute"
+        group_id = None
+        if aggregate_by == "month":
+            group_id = {"$dateToString": {"format": "%Y-%m", "date": "$created_at"}}
+        elif aggregate_by == "day":
+            group_id = {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}}
+        elif aggregate_by == "hour":
+            group_id = {
+                "$dateToString": {"format": "%Y-%m-%d %H", "date": "$created_at"}
+            }
+        elif aggregate_by == "minute":
+            group_id = {
+                "$dateToString": {"format": "%Y-%m-%d %H:%M", "date": "$created_at"}
+            }
+        else:
+            raise ValueError("Invalid aggregation period")
+
+        return collection.aggregate(
+            [
+                {"$group": {"_id": group_id, "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+                {"$limit": limit},
+            ]
+        )
+
     def read_heat_maps(self, filters: Filters):
         query = {}
         if filters.seen is not None:
@@ -76,18 +103,37 @@ class Service:
             query["created_at"] = {"$lte": filters.created_at_end}
 
         # aggregate the data by date
-        return collection.aggregate(
+        result = collection.aggregate(
             [
                 {"$match": query},
-                {"$group": {"_id": {"$toLong": "$created_at"}, "value": {"$sum": 1}}},
+                {
+                    "$group": {
+                        "_id": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d",
+                                "date": "$created_at",
+                            }
+                        },
+                        "value": {"$sum": 1},
+                    }
+                },
             ]
         )
+        # Transform the date to Unix Epoch Time in Seconds
+        transformed_result = {}
+        for record in result:
+            date_str = record["_id"]
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            epoch_time = str(int(date_obj.timestamp()))
+            transformed_result[epoch_time] = record["value"]
+        return transformed_result
 
     def update_record(self, id, record: Record):
-        update_result = collection.update_one(
-            {"_id": id}, {"$set": record.model_dump()}
-        )
+        collection.update_one({"_id": id}, {"$set": record.model_dump("json")})
         return collection.find_one({"_id": id})
+
+    def mark_as_seen(self, ids: list[str]):
+        return collection.update_many({"_id": {"$in": ids}}, {"$set": {"seen": True}})
 
     def delete_record(self, id):
         return collection.delete_one({"_id": id})

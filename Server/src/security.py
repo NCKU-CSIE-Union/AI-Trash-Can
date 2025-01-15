@@ -1,4 +1,3 @@
-from typing import Annotated
 from datetime import timedelta
 
 import datetime
@@ -6,19 +5,27 @@ import uuid
 from jose import JWTError, jwt
 
 from fastapi import Depends, status, HTTPException
-from fastapi.security import APIKeyCookie
+from fastapi.security import APIKeyHeader, APIKeyCookie
 
 from src.config import server_config
 
 
-cookie_schema = APIKeyCookie(name="auth")
+cookie_schema = APIKeyCookie(name="auth", auto_error=False)
+header_schema = APIKeyHeader(name="api_key", auto_error=False)
 
 
-async def required_login(token: Annotated[str, Depends(cookie_schema)]) -> str:
+async def required_login(
+    token: str | None = Depends(cookie_schema),
+    api_key: str | None = Depends(header_schema),
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
     )
+    if api_key == server_config.auth.API_KEY:
+        return True
+    if token is None:
+        raise credentials_exception
     payload = decode_jwt(
         jwt_token=token,
         secret_key=server_config.auth.SECRET_KEY,

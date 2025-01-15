@@ -1,9 +1,8 @@
-from typing import Annotated
-from loguru import logger
-from fastapi import APIRouter, Depends, Response, Form, HTTPException, status
-from fastapi.responses import JSONResponse, RedirectResponse
+from typing import Annotated, Literal
+from fastapi import APIRouter, Depends, Response, Form, status
+from fastapi.responses import RedirectResponse
 
-from src.schema import Record, Filters, HeatMapRecord
+from src.schema import Record, Filters, LineChartRecord
 from src.model import Service
 from src.security import required_login, create_token
 from src.config import server_config
@@ -77,17 +76,20 @@ def read_records(
     return service.read_records(filters)
 
 
+@private_api_router.get("/records/line/", response_model_by_alias=False)
+def read_records_line_chart(
+    aggregate_by: Literal["month", "day", "hour", "minute"] | None = "day",
+    limit: int | None = 50,
+    service: Service = Depends(get_service),
+) -> list[LineChartRecord]:
+    return service.read_records_line_chart(aggregate_by, limit)
+
+
 @private_api_router.get("/records/heatmap/", response_model_by_alias=False)
 def read_records_heatmap(
     filters: Filters = Depends(get_filters), service: Service = Depends(get_service)
 ) -> dict:
-    heat_maps = service.read_heat_maps(filters)
-    result = {}
-    for heat_map in heat_maps:
-        result[str(heat_map["_id"])] = heat_map["value"]
-    print(result)
-    return result
-
+    return service.read_heat_maps(filters)
 
 
 @private_api_router.get("/records/{record_id}", response_model_by_alias=False)

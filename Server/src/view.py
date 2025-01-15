@@ -42,7 +42,7 @@ DATA_HTML = """
     <div style="margin-bottom: 20px;">
         <label for="aggregate_by">Aggregate By:</label>
         <select id="aggregate_by" name="aggregate_by" style="padding: 5px; border-radius: 5px; border: 1px solid #ccc;">
-            <option value="minute">Minute</option>
+            <option value="minute" selected>Minute</option>
             <option value="hour">Hour</option>
             <option value="day">Day</option>
             <option value="month">Month</option>
@@ -79,7 +79,8 @@ DATA_HTML = """
                 }
             }
         });
-
+        //9467050352000
+        //173693445
         var cal = new CalHeatMap();
         cal.init({
             itemSelector: "#heatmapContainer",
@@ -88,6 +89,8 @@ DATA_HTML = """
             data: 'http://localhost:8000/api/records/heatmap/',
             dataType: "json",
             start: new Date(new Date().setDate(new Date().getDate() - 5)),
+            previousSelector: '#cal-HeatMap-PreviousDomain-selector',
+            nextSelector: '#cal-HeatMap-NextDomain-selector',
             cellSize: 20,
             range: 12,
             legend: [2, 4, 6, 8]
