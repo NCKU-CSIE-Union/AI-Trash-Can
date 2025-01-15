@@ -87,9 +87,10 @@ def read_records_line_chart(
 
 @private_api_router.get("/records/heatmap/", response_model_by_alias=False)
 def read_records_heatmap(
-    filters: Filters = Depends(get_filters), service: Service = Depends(get_service)
+    aggregate_by: Literal["month", "day", "hour", "minute"] | None = "hour",
+    service: Service = Depends(get_service),
 ) -> dict:
-    return service.read_heat_maps(filters)
+    return service.read_heat_maps(aggregate_by)
 
 
 @private_api_router.get("/records/{record_id}", response_model_by_alias=False)

@@ -37,7 +37,7 @@ def get_service():
 class Service:
     def backfill_records(self, records: list[Record]):
         created_records = collection.insert_many(
-            [record.model_dump() for record in records]
+            [record.model_dump(mode="json") for record in records]
         )
         return collection.find({"_id": {"$in": created_records.inserted_ids}})
 
@@ -71,16 +71,29 @@ class Service:
         # aggregate_by will be one of "month", "day", "hour", "minute"
         group_id = None
         if aggregate_by == "month":
-            group_id = {"$dateToString": {"format": "%Y-%m", "date": "$created_at"}}
+            group_id = {
+                "$dateToString": {"format": "%Y-%m", "date": {"$toDate": "$created_at"}}
+            }
         elif aggregate_by == "day":
-            group_id = {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}}
+            group_id = {
+                "$dateToString": {
+                    "format": "%Y-%m-%d",
+                    "date": {"$toDate": "$created_at"},
+                }
+            }
         elif aggregate_by == "hour":
             group_id = {
-                "$dateToString": {"format": "%Y-%m-%d %H", "date": "$created_at"}
+                "$dateToString": {
+                    "format": "%Y-%m-%d %H",
+                    "date": {"$toDate": "$created_at"},
+                }
             }
         elif aggregate_by == "minute":
             group_id = {
-                "$dateToString": {"format": "%Y-%m-%d %H:%M", "date": "$created_at"}
+                "$dateToString": {
+                    "format": "%Y-%m-%d %H:%M",
+                    "date": {"$toDate": "$created_at"},
+                }
             }
         else:
             raise ValueError("Invalid aggregation period")
@@ -88,44 +101,31 @@ class Service:
         return collection.aggregate(
             [
                 {"$group": {"_id": group_id, "count": {"$sum": 1}}},
-                {"$sort": {"_id": 1}},
+                {"$sort": {"_id": -1}},
                 {"$limit": limit},
             ]
         )
 
-    def read_heat_maps(self, filters: Filters):
-        query = {}
-        if filters.seen is not None:
-            query["seen"] = filters.seen
-        if filters.created_at_start is not None:
-            query["created_at"] = {"$gte": filters.created_at_start}
-        if filters.created_at_end is not None:
-            query["created_at"] = {"$lte": filters.created_at_end}
-
-        # aggregate the data by date
-        result = collection.aggregate(
-            [
-                {"$match": query},
-                {
-                    "$group": {
-                        "_id": {
-                            "$dateToString": {
-                                "format": "%Y-%m-%d",
-                                "date": "$created_at",
-                            }
-                        },
-                        "value": {"$sum": 1},
-                    }
-                },
-            ]
-        )
+    def read_heat_maps(self, aggregate_by: str):
+        line_chart_records = self.read_records_line_chart(aggregate_by, 10000)
         # Transform the date to Unix Epoch Time in Seconds
         transformed_result = {}
-        for record in result:
+        time_format = ""
+        if aggregate_by == "month":
+            time_format = "%Y-%m"
+        elif aggregate_by == "day":
+            time_format = "%Y-%m-%d"
+        elif aggregate_by == "hour":
+            time_format = "%Y-%m-%d %H"
+        elif aggregate_by == "minute":
+            time_format = "%Y-%m-%d %H:%M"
+        else:
+            raise ValueError("Invalid aggregation period")
+        for record in line_chart_records:
             date_str = record["_id"]
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            date_obj = datetime.strptime(date_str, time_format)
             epoch_time = str(int(date_obj.timestamp()))
-            transformed_result[epoch_time] = record["value"]
+            transformed_result[epoch_time] = record["count"]
         return transformed_result
 
     def update_record(self, id, record: Record):
