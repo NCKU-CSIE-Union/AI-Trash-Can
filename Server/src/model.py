@@ -29,6 +29,10 @@ def test_connection():
         return False
 
 
+def get_service():
+    return Service()
+
+
 class Service:
     def backfill_records(self, records: list[Record]):
         created_records = collection.insert_many(

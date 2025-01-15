@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, field_valida
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
 
-
 # Define the Record model
 class Record(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
@@ -20,13 +19,24 @@ class Record(BaseModel):
         populate_by_name=True,
     )
 
+
 class HeatMapRecord(BaseModel):
     date: Optional[PyObjectId] = Field(alias="_id", default=None)
     value: int
-
 
 
 class Filters(BaseModel):
     seen: bool | None = None
     created_at_start: datetime | None = None
     created_at_end: datetime | None = None
+
+
+class SystemEvent(BaseModel):
+    event_type: str = "system"
+    message: str
+
+
+class NewRecordEvent(BaseModel):
+    event_type: str = "new_record"
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    created_at: datetime

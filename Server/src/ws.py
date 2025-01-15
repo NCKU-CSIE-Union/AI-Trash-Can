@@ -1,22 +1,37 @@
-from fastapi import APIRouter, Depends, WebSocket
+from fastapi import WebSocket, HTTPException, status, WebSocketDisconnect
 from loguru import logger
+from pymongo import AsyncMongoClient
 
-from src.security import required_login
-from src.model import Service
+from src.security import is_valid_token
+from src.config import server_config
+from src.schema import SystemEvent, NewRecordEvent
 
-private_ws_router = APIRouter(prefix="/ws", dependencies=[Depends(required_login)])
 
-
-def get_service():
-    return Service()
-
-@private_ws_router.websocket("/ws/")
-async def websocket_endpoint(websocket: WebSocket, service: Service = Depends(get_service)):
+async def handle_websocket_notification(
+    websocket: WebSocket,
+    service,
+):
     await websocket.accept()
+    # token = websocket.cookies.get("auth")
+    # if not token or not is_valid_token(token):
+    #     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+    #     return
+    await websocket.send_json(SystemEvent(message="Connected").model_dump())
     try:
-        async for change in service.watch_collection():
-            logger.debug(change)
-            await websocket.send_json(change)
+        async with AsyncMongoClient(server_config.mongo.MONGO_URI) as client:
+            db = client[server_config.mongo.MONGO_DB]
+            collection = db[server_config.mongo.MONGO_COLLECTION]
+            await websocket.send_json(
+                SystemEvent(message="Watching for changes").model_dump()
+            )
+            async with await collection.watch() as change_stream:
+                async for change in change_stream:
+                    logger.debug(change)
+                    await websocket.send_json(
+                        NewRecordEvent(**change["fullDocument"]).model_dump(mode="json")
+                    )
+    except WebSocketDisconnect:
+        logger.info("WebSocket connection closed")
     except Exception as e:
         logger.error(e)
     finally:

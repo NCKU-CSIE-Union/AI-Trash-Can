@@ -1,8 +1,9 @@
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
+from src.security import is_valid_token
 
 view_router = APIRouter()
 
@@ -33,7 +34,6 @@ DATA_HTML = """
 <head>
     <title>Data Visualization</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <script type="text/javascript" src="//d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="//cdn.jsdelivr.net/cal-heatmap/3.3.10/cal-heatmap.min.js"></script>
     <link rel="stylesheet" href="//cdn.jsdelivr.net/cal-heatmap/3.3.10/cal-heatmap.css" />
@@ -80,14 +80,62 @@ DATA_HTML = """
             legend: [2, 4, 6, 8]
         });
 
-        var ws = new WebSocket('ws://localhost:8000/ws');
+        var ws = new WebSocket("ws://localhost:8000/ws");
+        var alertContainer = document.createElement('div');
+        alertContainer.style.position = 'fixed';
+        alertContainer.style.top = '10px';
+        alertContainer.style.right = '10px';
+        alertContainer.style.zIndex = '1000';
+        document.body.appendChild(alertContainer);
+
+        function showAlert(message) {
+            var alert = document.createElement('div');
+            alert.style.backgroundColor = 'green';
+            alert.style.color = 'white';
+            alert.style.padding = '10px';
+            alert.style.marginBottom = '5px';
+            alert.style.borderRadius = '5px';
+            alert.innerText = message;
+            alertContainer.appendChild(alert);
+
+            setTimeout(function() {
+                alertContainer.removeChild(alert);
+            }, 3000);
+        }
+
+        function showNewRecordAlert(data) {
+            var alert = document.createElement('div');
+            alert.style.backgroundColor = 'green';
+            alert.style.color = 'white';
+            alert.style.padding = '3px';
+            alert.style.paddingLeft = '10px';
+            alert.style.marginBottom = '5px';
+            alert.style.borderRadius = '5px';
+            alert.innerHTML = `<h5>New Record</h5><ul><li>id: ${data.id}</li><li>created_at: ${data.created_at}</li></ul>`;
+            alertContainer.appendChild(alert);
+
+            setTimeout(function() {
+                alertContainer.removeChild(alert);
+            }, 3000);
+        }
+
         ws.onmessage = function(event) {
             var data = JSON.parse(event.data);
-            // Update your charts with the new data
+            if (data.event_type === "system") {
+                showAlert(data.message);
+            } else if (data.event_type === "new_record") {
+                showNewRecordAlert(data);
+                console.log(data);
+            }
         };
 
-        fetch('/api/records')
-            .then(response => response.json())
+        fetch('/api/records/')
+            .then(response => {
+                if (response.status === 403) {
+                    window.location.href = "/";
+                }
+                return response.json();
+            })
             .then(data => {
                 // Assuming data is an array of records
                 var labels = data.map(record => record.created_at); // Adjust according to your data structure
@@ -104,9 +152,14 @@ DATA_HTML = """
 </html>
 """
 
+
 @view_router.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return HTMLResponse(content=LOGIN_HTML)
+    token = request.cookies.get("auth")
+    if not token or not is_valid_token(token):
+        return HTMLResponse(content=LOGIN_HTML)
+    return RedirectResponse(url="/data", status_code=status.HTTP_303_SEE_OTHER)
+
 
 @view_router.get("/data", response_class=HTMLResponse)
 async def data_page(request: Request):

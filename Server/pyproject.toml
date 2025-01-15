@@ -9,4 +9,5 @@ dependencies = [
     "loguru>=0.7.3",
     "pymongo>=4.10.1",
     "python-jose[cryptography]>=3.3.0",
+    "websockets>=14.1",
 ]

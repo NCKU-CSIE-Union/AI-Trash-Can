@@ -31,6 +31,17 @@ async def required_login(token: Annotated[str, Depends(cookie_schema)]) -> str:
     return payload.get("sub")
 
 
+def is_valid_token(token: str) -> bool:
+    payload = decode_jwt(
+        jwt_token=token,
+        secret_key=server_config.auth.SECRET_KEY,
+        algorithm=server_config.auth.ALGORITHM,
+        issuer=server_config.auth.ISSUER,
+    )
+
+    return payload is not None and "sub" in payload
+
+
 def create_token(sub: str) -> str:
     access_token_expires_at = get_now() + timedelta(
         minutes=server_config.auth.EXPIRE_MINUTES
