@@ -39,7 +39,15 @@ DATA_HTML = """
     <link rel="stylesheet" href="//cdn.jsdelivr.net/cal-heatmap/3.3.10/cal-heatmap.css" />
 </head>
 <body>
-    <h1>Data Visualization</h1>
+    <div style="margin-bottom: 20px;">
+        <label for="aggregate_by">Aggregate By:</label>
+        <select id="aggregate_by" name="aggregate_by" style="padding: 5px; border-radius: 5px; border: 1px solid #ccc;">
+            <option value="minute">Minute</option>
+            <option value="hour">Hour</option>
+            <option value="day">Day</option>
+            <option value="month">Month</option>
+        </select>
+    </div>
     <div style="width: 800px; height: 400px;">
         <canvas id="lineChart"></canvas>
     </div>
@@ -59,9 +67,14 @@ DATA_HTML = """
                 }]
             },
             options: {
-                scales: {
-                    y: {
-                        beginAtZero: true
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Trash Count'
                     }
                 }
             }
@@ -90,9 +103,11 @@ DATA_HTML = """
 
         function showAlert(message) {
             var alert = document.createElement('div');
-            alert.style.backgroundColor = 'green';
+            alert.style.backgroundColor = 'rgba(0, 128, 0, 0.5)';
             alert.style.color = 'white';
-            alert.style.padding = '10px';
+            alert.style.padding = '3px';
+            alert.style.paddingLeft = '10px';
+            alert.style.paddingRight = '10px';
             alert.style.marginBottom = '5px';
             alert.style.borderRadius = '5px';
             alert.innerText = message;
@@ -100,15 +115,16 @@ DATA_HTML = """
 
             setTimeout(function() {
                 alertContainer.removeChild(alert);
-            }, 3000);
+            }, 5000);
         }
 
         function showNewRecordAlert(data) {
             var alert = document.createElement('div');
-            alert.style.backgroundColor = 'green';
+            alert.style.backgroundColor = 'rgba(0, 128, 0, 0.5)';
             alert.style.color = 'white';
             alert.style.padding = '3px';
             alert.style.paddingLeft = '10px';
+            alert.style.paddingRight = '10px';
             alert.style.marginBottom = '5px';
             alert.style.borderRadius = '5px';
             alert.innerHTML = `<h5>New Record</h5><ul><li>id: ${data.id}</li><li>created_at: ${data.created_at}</li></ul>`;
@@ -119,6 +135,29 @@ DATA_HTML = """
             }, 3000);
         }
 
+        function updateLineChart(aggregateBy) {
+                fetch(`/api/records/line/?aggregate_by=${aggregateBy}`)
+                    .then(response => {
+                        console.log(response);
+                        if (response.status === 401) {
+                            window.location.href = "/";
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        var labels = [];
+                        var values = [];
+                        data.forEach(function(item) {
+                            labels.push(item.date);
+                            values.push(item.count);
+                        });
+                        lineChart.data.labels = labels;
+                        lineChart.data.datasets[0].data = values;
+                        lineChart.update();
+                    })
+                    .catch(error => console.error('Error fetching records:', error));
+            }
+
         ws.onmessage = function(event) {
             var data = JSON.parse(event.data);
             if (data.event_type === "system") {
@@ -126,26 +165,17 @@ DATA_HTML = """
             } else if (data.event_type === "new_record") {
                 showNewRecordAlert(data);
                 console.log(data);
+                updateLineChart(document.getElementById('aggregate_by').value);
             }
         };
 
-        fetch('/api/records/')
-            .then(response => {
-                if (response.status === 403) {
-                    window.location.href = "/";
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Assuming data is an array of records
-                var labels = data.map(record => record.created_at); // Adjust according to your data structure
-                var chartData = data.map(record => record.seen ? 1 : 0); // Adjust according to your data structure
+        document.getElementById('aggregate_by').addEventListener('change', function() {
+            var aggregateBy = this.value;
+            console.log(aggregateBy);
+            updateLineChart(aggregateBy);
+        });
 
-                lineChart.data.labels = labels;
-                lineChart.data.datasets[0].data = chartData;
-                lineChart.update();
-            })
-            .catch(error => console.error('Error fetching records:', error));
+        updateLineChart(document.getElementById('aggregate_by').value);
 
     </script>
 </body>

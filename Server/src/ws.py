@@ -1,15 +1,16 @@
-from fastapi import WebSocket, HTTPException, status, WebSocketDisconnect
+from fastapi import WebSocket, status, WebSocketDisconnect
 from loguru import logger
-from pymongo import AsyncMongoClient
+import asyncio
 
 from src.security import is_valid_token
 from src.config import server_config
-from src.schema import SystemEvent, NewRecordEvent
+from src.schema import SystemEvent, NewRecordEvent, Filters
+from src.model import Service
 
 
 async def handle_websocket_notification(
     websocket: WebSocket,
-    service,
+    service: Service,
 ):
     await websocket.accept()
     # token = websocket.cookies.get("auth")
@@ -18,18 +19,19 @@ async def handle_websocket_notification(
     #     return
     await websocket.send_json(SystemEvent(message="Connected").model_dump())
     try:
-        async with AsyncMongoClient(server_config.mongo.MONGO_URI) as client:
-            db = client[server_config.mongo.MONGO_DB]
-            collection = db[server_config.mongo.MONGO_COLLECTION]
-            await websocket.send_json(
-                SystemEvent(message="Watching for changes").model_dump()
-            )
-            async with await collection.watch() as change_stream:
-                async for change in change_stream:
-                    logger.debug(change)
-                    await websocket.send_json(
-                        NewRecordEvent(**change["fullDocument"]).model_dump(mode="json")
-                    )
+        while True:
+            new_records = service.read_records(Filters(seen=False))
+            new_ids = []
+            for record in new_records:
+                new_ids.append(record["_id"])
+                logger.debug(f"sending new record: {record}")
+                await websocket.send_json(
+                    NewRecordEvent(**record).model_dump(mode="json")
+                )
+                await asyncio.sleep(0.1)
+            service.mark_as_seen(new_ids)
+            logger.debug(f"marked {new_ids} as seen")
+            await asyncio.sleep(2)
     except WebSocketDisconnect:
         logger.info("WebSocket connection closed")
     except Exception as e:
