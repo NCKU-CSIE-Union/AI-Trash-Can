@@ -87,7 +87,7 @@ DATA_HTML = """
             domain: "day",
             subDomain: "hour",
             domainGutter: 2,
-            data: 'http://localhost:8000/api/records/heatmap/',
+            data: "http://"  + location.host + "/api/records/heatmap/",
             dataType: "json",
             start: new Date(new Date().setDate(new Date().getDate() - 5)),
             previousSelector: '#cal-HeatMap-PreviousDomain-selector',
@@ -97,7 +97,7 @@ DATA_HTML = """
             legend: [1, 2, 3, 4]
         });
 
-        var ws = new WebSocket("ws://localhost:8000/ws");
+        var ws = new WebSocket("ws://"  + location.host + "/ws");
         var alertContainer = document.createElement('div');
         alertContainer.style.position = 'fixed';
         alertContainer.style.top = '10px';
